@@ -1,0 +1,2736 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H 신·구조문대비표 생성기</title>
+    <meta name="description" content="HWPX 두 파일을 비교하여 법제처 표준 서식의 대비표를 생성합니다.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- JSZip via CDN for HWPX parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <style>
+        /* CSS Reset & Variable Definitions */
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.85);
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #e0e7ff;
+            --primary-dark: #1e1b4b;
+            
+            --success: #059669;
+            --success-light: #d1fae5;
+            --success-border: #10b981;
+            
+            --warning: #d97706;
+            --warning-light: #fef3c7;
+            
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            
+            --info: #0052cc;
+            --info-light: #e6f0ff;
+            
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025), 0 0 0 1px rgba(0, 0, 0, 0.02);
+            --dialog-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --border-radius: 12px;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #090d16;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.85);
+            --border-color: #1f2937;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --primary-light: #1e1b4b;
+            --primary-dark: #e0e7ff;
+            
+            --success: #10b981;
+            --success-light: #064e3b;
+            --success-border: #059669;
+            
+            --warning: #f59e0b;
+            --warning-light: #78350f;
+            
+            --danger: #ef4444;
+            --danger-light: #7f1d1d;
+            
+            --info: #3b82f6;
+            --info-light: #1e3a8a;
+            
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            --dialog-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, rgba(0,0,0,0) 70%);
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .header-container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .logo-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.6rem;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition-smooth);
+        }
+
+        .theme-toggle-btn:hover {
+            transform: rotate(15deg) scale(1.05);
+            border-color: var(--primary);
+        }
+
+        main {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 1.5rem 4rem;
+            position: relative;
+            z-index: 10;
+            flex-grow: 1;
+        }
+
+        .title-section {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .title-badge {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+        }
+
+        .title-section h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.03em;
+        }
+
+        .title-section p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        .glass-card {
+            background-color: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .upload-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .upload-box {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.02);
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 220px;
+        }
+
+        .upload-box:hover {
+            border-color: var(--primary);
+            background-color: rgba(99, 102, 241, 0.02);
+        }
+
+        .upload-box.dragover {
+            border-color: var(--primary);
+            background-color: rgba(99, 102, 241, 0.05);
+            transform: scale(1.01);
+        }
+
+        .upload-box.uploaded {
+            border-style: solid;
+            border-color: var(--success-border);
+            background-color: rgba(16, 185, 129, 0.02);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.1);
+        }
+
+        .upload-box-icon {
+            font-size: 2.5rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            transition: var(--transition-smooth);
+        }
+
+        .upload-box:hover .upload-box-icon {
+            color: var(--primary);
+            transform: translateY(-4px);
+        }
+
+        .upload-box.uploaded .upload-box-icon {
+            color: var(--success);
+        }
+
+        .upload-box-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-box-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .file-select-btn {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .upload-box:hover .file-select-btn {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .file-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 1rem 1.25rem;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow-sm);
+            animation: scaleIn 0.3s ease;
+        }
+
+        .file-card-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-align: left;
+        }
+
+        .file-card-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-card-name {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-all;
+            max-width: 280px;
+        }
+
+        .file-card-size {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .file-card-delete {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition-smooth);
+        }
+
+        .file-card-delete:hover {
+            color: var(--danger);
+            background-color: var(--danger-light);
+        }
+
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .action-button-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.875rem 2rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            border: none;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition-smooth);
+        }
+
+        .btn-compare {
+            background-color: var(--border-color);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            min-width: 240px;
+        }
+
+        .btn-compare.active {
+            background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-compare.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-compare.completed-state {
+            background: #1e293b; /* 짙은 남색 */
+            color: white;
+            cursor: pointer;
+        }
+        [data-theme="dark"] .btn-compare.completed-state {
+            background: #0f172a;
+        }
+        .btn-compare.completed-state:hover {
+            transform: translateY(-2px);
+            background: #0f172a;
+        }
+
+        .btn-download {
+            background-color: var(--success);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            background-color: var(--success-border);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-reset {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-reset:hover {
+            transform: translateY(-2px);
+            background-color: var(--bg-primary);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .loading-card {
+            background-color: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            box-shadow: var(--dialog-shadow);
+            padding: 3rem;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(99, 102, 241, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+            margin-bottom: 2rem;
+        }
+
+        .loading-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .loading-steps {
+            text-align: left;
+            width: 100%;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            height: 110px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .loading-step-item {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .loading-step-item.active {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .loading-step-item.done {
+            color: var(--success);
+        }
+
+        .results-container {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .results-container.show {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .results-dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        .results-summary {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .results-summary span {
+            color: var(--primary);
+        }
+
+        .badges-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .badge-filter {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: var(--transition-smooth);
+            background-color: var(--bg-primary);
+            color: var(--text-secondary);
+        }
+
+        .badge-filter:hover {
+            transform: translateY(-1px);
+        }
+
+        .badge-filter[data-type="all"] {
+            border-color: var(--border-color);
+        }
+        .badge-filter[data-type="all"].active {
+            background-color: var(--text-primary);
+            color: var(--bg-primary);
+        }
+
+        .badge-filter[data-type="modified"] {
+            color: var(--warning);
+            background-color: var(--warning-light);
+        }
+        .badge-filter[data-type="modified"].active {
+            box-shadow: 0 0 0 2px var(--warning);
+        }
+
+        .badge-filter[data-type="keep"] {
+            color: var(--text-secondary);
+            background-color: var(--border-color);
+        }
+        .badge-filter[data-type="keep"].active {
+            box-shadow: 0 0 0 2px var(--text-secondary);
+        }
+
+        .badge-filter[data-type="added"] {
+            color: var(--success);
+            background-color: var(--success-light);
+        }
+        .badge-filter[data-type="added"].active {
+            box-shadow: 0 0 0 2px var(--success);
+        }
+
+        .badge-filter[data-type="deleted"] {
+            color: var(--danger);
+            background-color: var(--danger-light);
+        }
+        .badge-filter[data-type="deleted"].active {
+            box-shadow: 0 0 0 2px var(--danger);
+        }
+
+        .badge-count {
+            background-color: rgba(255, 255, 255, 0.6);
+            padding: 0.05rem 0.4rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+        [data-theme="dark"] .badge-count {
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            max-height: 700px;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+            background-color: var(--bg-secondary);
+        }
+
+        .comparison-table th {
+            background-color: var(--bg-primary);
+            color: var(--text-secondary);
+            font-weight: 700;
+            padding: 1rem 1.25rem;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 1px 0 var(--border-color);
+            text-align: center;
+        }
+
+        .comparison-table th:not(:last-child),
+        .comparison-table td:not(:last-child) {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .comparison-table tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: opacity 0.3s ease;
+        }
+
+        .comparison-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-table tr:hover {
+            background-color: rgba(99, 102, 241, 0.01);
+        }
+
+        .comparison-table td {
+            padding: 1.25rem;
+            vertical-align: top;
+            line-height: 1.6;
+        }
+
+        .col-current, .col-revised {
+            width: 50%;
+        }
+
+        .status-keep td {
+            color: var(--text-muted);
+        }
+
+        .status-container {
+            background-color: var(--bg-primary);
+        }
+        .status-container td {
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        /* Standard Red/Blue font coloring based on guidelines */
+        .diff-deleted {
+            color: #dc2626 !important;
+            font-weight: bold;
+            text-decoration: none;
+            background-color: transparent !important;
+        }
+
+        .diff-added {
+            color: #0052cc !important;
+            font-weight: bold;
+            text-decoration: none;
+            background-color: transparent !important;
+        }
+
+        .modified {
+            color: #0052cc !important;
+            font-weight: bold;
+            background-color: transparent !important;
+        }
+        [data-theme="dark"] .modified {
+            color: #3b82f6 !important;
+        }
+
+        .added {
+            font-weight: bold;
+            color: #0052cc !important;
+            background-color: transparent !important;
+            display: inline-block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        [data-theme="dark"] .added {
+            color: #3b82f6 !important;
+        }
+
+        .deleted {
+            color: #dc2626 !important;
+            background-color: transparent !important;
+            display: inline-block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        [data-theme="dark"] .deleted {
+            color: #ef4444 !important;
+        }
+
+        .deleted-text {
+            text-decoration: line-through;
+            color: #dc2626 !important;
+            opacity: 0.85;
+        }
+
+        [contenteditable="true"]:focus {
+            outline: 2px solid var(--primary);
+            border-radius: 4px;
+            background-color: rgba(99, 102, 241, 0.05);
+        }
+        
+        .daebipyo-header-info {
+            margin-bottom: 0.5rem;
+        }
+
+        .center-text {
+            text-align: center;
+        }
+
+        .hidden-file-input {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 4rem;
+        }
+
+        /* Imported compact tables styling */
+        .hwp-imported-table {
+            font-size: 8pt !important;
+            line-height: 1.3 !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+            margin: 5px 0 !important;
+            border: 1px solid var(--border-color) !important;
+            background-color: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+        }
+        .hwp-imported-table td, .hwp-imported-table th {
+            padding: 3px 5px !important;
+            border: 1px solid var(--border-color) !important;
+            font-size: 8pt !important;
+        }
+        .table-deleted-wrapper, .table-added-wrapper {
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Area -->
+    <header class="header-container">
+        <div class="logo-area">
+            <img src="logo.jpg" alt="KOMIR Logo" style="height: 40px; width: auto; object-fit: contain;">
+        </div>
+        <button class="theme-toggle-btn" id="theme-toggle" aria-label="테마 전환">
+            <svg id="theme-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <svg id="theme-sun" style="display: none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main>
+        <section class="title-section">
+            <span class="title-badge">HWPX REAL-TIME COMPARATOR</span>
+            <h1>신·구조문대비표 생성기</h1>
+            <p>HWPX 두 파일을 비교하여 법제처 표준 서식의 대비표를 생성합니다.</p>
+        </section>
+
+        <div class="glass-card">
+            
+            <!-- File Upload Grid -->
+            <div class="upload-grid" id="upload-container">
+                <!-- Left: Current -->
+                <div class="upload-box" id="dropzone-current" onclick="triggerFileInput('file-current')">
+                    <input type="file" id="file-current" class="hidden-file-input" accept=".hwpx" onchange="handleFileSelect(event, 'current')">
+                    <div class="upload-box-content" id="content-current-empty">
+                        <div class="upload-box-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                        </div>
+                        <h3 class="upload-box-title">현행 HWPX (개정 전)</h3>
+                        <p class="upload-box-desc">드래그 앤 드롭하거나 클릭하여 파일을 선택하세요.</p>
+                        <button class="file-select-btn">파일 선택</button>
+                    </div>
+                    <div class="file-card" id="content-current-filled" style="display: none;" onclick="event.stopPropagation();">
+                        <div class="file-card-info">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <path d="M9 15l2 2 4-4"></path>
+                            </svg>
+                            <div class="file-card-details">
+                                <span class="file-card-name" id="name-current">-</span>
+                                <span class="file-card-size" id="size-current">- KB</span>
+                            </div>
+                        </div>
+                        <button class="file-card-delete" onclick="resetFile('current')" aria-label="파일 삭제">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right: Revised -->
+                <div class="upload-box" id="dropzone-revised" onclick="triggerFileInput('file-revised')">
+                    <input type="file" id="file-revised" class="hidden-file-input" accept=".hwpx" onchange="handleFileSelect(event, 'revised')">
+                    <div class="upload-box-content" id="content-revised-empty">
+                        <div class="upload-box-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                        </div>
+                        <h3 class="upload-box-title">개정안 HWPX (개정 후)</h3>
+                        <p class="upload-box-desc">드래그 앤 드롭하거나 클릭하여 파일을 선택하세요.</p>
+                        <button class="file-select-btn">파일 선택</button>
+                    </div>
+                    <div class="file-card" id="content-revised-filled" style="display: none;" onclick="event.stopPropagation();">
+                        <div class="file-card-info">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <path d="M9 15l2 2 4-4"></path>
+                            </svg>
+                            <div class="file-card-details">
+                                <span class="file-card-name" id="name-revised">-</span>
+                                <span class="file-card-size" id="size-revised">- KB</span>
+                            </div>
+                        </div>
+                        <button class="file-card-delete" onclick="resetFile('revised')" aria-label="파일 삭제">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="controls-panel">
+                <div class="action-button-group" id="btn-group-container">
+                    <button class="btn btn-compare" id="btn-compare" onclick="generateDaebipyo()" disabled>
+                        <span>신·구조문대비표 생성</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results View -->
+            <div class="results-container" id="results-container">
+                <div class="results-dashboard">
+                    <div class="results-summary">
+                        비교 결과: 총 <span id="total-count">0</span>개 항목 구성됨
+                    </div>
+                    <div class="badges-list">
+                        <div class="badge-filter active" data-type="all" onclick="filterTable('all')">
+                            <span>전체보기</span>
+                        </div>
+                        <div class="badge-filter" data-type="modified" onclick="filterTable('modified')">
+                            🟡 수정 <span class="badge-count" id="count-modified">0</span>
+                        </div>
+                        <div class="badge-filter" data-type="keep" onclick="filterTable('keep')">
+                            ⚪ 생략 <span class="badge-count" id="count-keep">0</span>
+                        </div>
+                        <div class="badge-filter" data-type="added" onclick="filterTable('added')">
+                            🟢 신설 <span class="badge-count" id="count-added">0</span>
+                        </div>
+                        <div class="badge-filter" data-type="deleted" onclick="filterTable('deleted')">
+                            🔴 폐지 <span class="badge-count" id="count-deleted">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Document Header Title -->
+                <div class="daebipyo-header" style="text-align: center; margin: 2rem 0; padding: 1.5rem; background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+                    <h2 id="daebipyo-title" contenteditable="true" style="font-size: 2.2rem; font-weight: 800; letter-spacing: -0.05em; color: var(--text-primary); margin-bottom: 0.5rem; border-bottom: 3px double var(--text-primary); display: inline-block; padding-bottom: 5px;">신구조문대비표</h2>
+                    <div id="daebipyo-subtitle" contenteditable="true" style="font-size: 1.25rem; font-weight: 600; color: var(--text-secondary); margin-top: 0.5rem;">「개인정보 보호법」</div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-responsive">
+                    <table class="comparison-table" id="comparison-table">
+                        <thead>
+                            <tr>
+                                <th class="col-current" style="width: 50%; padding: 1.25rem; border-right: 1px solid var(--border-color);">
+                                    <div id="header-current-title" contenteditable="true" style="font-weight: 700; font-size: 1.2rem; color: var(--text-primary); margin-bottom: 0.25rem;">현행안</div>
+                                    <div id="header-current-meta" contenteditable="true" style="font-weight: 400; font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">[시행 2020. 8. 5.] [법률 제16930호, 2020. 2. 4., 일부개정]</div>
+                                </th>
+                                <th class="col-revised" style="width: 50%; padding: 1.25rem;">
+                                    <div id="header-revised-title" contenteditable="true" style="font-weight: 700; font-size: 1.2rem; color: var(--text-primary); margin-bottom: 0.25rem;">개정안</div>
+                                    <div id="header-revised-meta" contenteditable="true" style="font-weight: 400; font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">[시행 2023. 9. 15.] [법률 제19234호, 2023. 3. 14., 일부개정]</div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Simulated Loading Dialog -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <h3 class="loading-title">신·구조문대비표를 생성하는 중입니다</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">HWPX 파일의 기하학적 구조 및 문단을 분석하고 있습니다.</p>
+            <div class="loading-steps" id="loading-steps">
+                <div class="loading-step-item" id="step-1">
+                    <span>□</span> <span>바이너리 언집핑 및 XML 파싱 중...</span>
+                </div>
+                <div class="loading-step-item" id="step-2">
+                    <span>□</span> <span>조·항·호 정형 구조 트리 생성 중...</span>
+                </div>
+                <div class="loading-step-item" id="step-3">
+                    <span>□</span> <span>법제처 양식에 맞춰 수평 정렬 정합성 분석 중...</span>
+                </div>
+                <div class="loading-step-item" id="step-4">
+                    <span>□</span> <span>변경점 실시간 대조 및 Diff 하이라이팅 완료!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Area -->
+    <footer>
+        <p>© 2026 H-Compare Web Portal. All rights reserved. 법제처 표준서식 규격 준수.</p>
+    </footer>
+
+    <!-- Core JavaScript Logic -->
+    <script>
+        // State variables
+        let uploadedFiles = {
+            current: null,
+            revised: null
+        };
+        let parsedTexts = {
+            current: [],
+            revised: []
+        };
+        let comparisonRows = [];
+        let currentFilter = 'all';
+
+        // Theme Toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeMoon = document.getElementById('theme-moon');
+        const themeSun = document.getElementById('theme-sun');
+        const htmlDoc = document.documentElement;
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlDoc.getAttribute('data-theme');
+            if (currentTheme === 'light') {
+                htmlDoc.setAttribute('data-theme', 'dark');
+                themeMoon.style.display = 'none';
+                themeSun.style.display = 'block';
+            } else {
+                htmlDoc.setAttribute('data-theme', 'light');
+                themeMoon.style.display = 'block';
+                themeSun.style.display = 'none';
+            }
+        });
+
+        // Setup Drag & Drop Handlers
+        const dropzoneCurrent = document.getElementById('dropzone-current');
+        const dropzoneRevised = document.getElementById('dropzone-revised');
+
+        setupDragAndDrop(dropzoneCurrent, 'current');
+        setupDragAndDrop(dropzoneRevised, 'revised');
+
+        function setupDragAndDrop(dropzone, type) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!uploadedFiles[type]) {
+                        dropzone.classList.add('dragover');
+                    }
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('dragover');
+                }, false);
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processUploadedFile(files[0], type);
+                }
+            }, false);
+        }
+
+        function triggerFileInput(inputId) {
+            document.getElementById(inputId).click();
+        }
+
+        function handleFileSelect(event, type) {
+            const file = event.target.files[0];
+            if (file) {
+                processUploadedFile(file, type);
+            }
+        }
+
+        async function processUploadedFile(file, type) {
+            // Check if extension is HWPX
+            if (!file.name.toLowerCase().endsWith('.hwpx')) {
+                alert("HWPX 형식의 한글 파일만 지원합니다.");
+                return;
+            }
+
+            try {
+                // Update UI state to loading style
+                uploadedFiles[type] = {
+                    name: file.name,
+                    size: (file.size / 1024).toFixed(1)
+                };
+
+                // Parse paragraphs from HWPX using JSZip
+                parsedTexts[type] = await extractHwpxParagraphs(file);
+                
+                const emptyEl = document.getElementById(`content-${type}-empty`);
+                const filledEl = document.getElementById(`content-${type}-filled`);
+                const dropzoneEl = document.getElementById(`dropzone-${type}`);
+                const nameEl = document.getElementById(`name-${type}`);
+                const sizeEl = document.getElementById(`size-${type}`);
+
+                nameEl.textContent = file.name;
+                sizeEl.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+                emptyEl.style.display = 'none';
+                filledEl.style.display = 'flex';
+                dropzoneEl.classList.add('uploaded');
+
+                checkCompareButtonState();
+            } catch (err) {
+                alert(`파일 로드 중 오류가 발생했습니다: ${err.message}`);
+                resetFile(type);
+            }
+        }
+
+        // Table cell parent climbers
+        function findParentTable(el) {
+            let p = el.parentNode;
+            while (p && p.tagName !== 'tbl' && p.tagName !== 'hp:tbl') {
+                p = p.parentNode;
+            }
+            return p;
+        }
+        function findParentRow(el) {
+            let p = el.parentNode;
+            while (p && p.tagName !== 'tr' && p.tagName !== 'hp:tr') {
+                p = p.parentNode;
+            }
+            return p;
+        }
+        function findParentCell(el) {
+            let p = el.parentNode;
+            while (p && p.tagName !== 'tc' && p.tagName !== 'hp:tc') {
+                p = p.parentNode;
+            }
+            return p;
+        }
+
+        // HWPX Table parser (structural)
+        function parseHwpxTableStructure(tblEl) {
+            const rows = [];
+            const trEls = tblEl.getElementsByTagNameNS ? tblEl.getElementsByTagNameNS("*", "tr") : tblEl.getElementsByTagName("tr");
+            
+            for (let i = 0; i < trEls.length; i++) {
+                const trEl = trEls[i];
+                if (findParentTable(trEl) !== tblEl) continue;
+                
+                const cells = [];
+                const tcEls = trEl.getElementsByTagNameNS ? trEl.getElementsByTagNameNS("*", "tc") : trEl.getElementsByTagName("tc");
+                for (let j = 0; j < tcEls.length; j++) {
+                    const tcEl = tcEls[j];
+                    if (findParentRow(tcEl) !== trEl) continue;
+                    
+                    const cellSpanEl = tcEl.getElementsByTagNameNS ? tcEl.getElementsByTagNameNS("*", "cellSpan")[0] : tcEl.getElementsByTagName("cellSpan")[0];
+                    const colSpan = cellSpanEl ? (cellSpanEl.getAttribute("colSpan") || "1") : "1";
+                    const rowSpan = cellSpanEl ? (cellSpanEl.getAttribute("rowSpan") || "1") : "1";
+                    
+                    const pEls = tcEl.getElementsByTagNameNS ? tcEl.getElementsByTagNameNS("*", "p") : tcEl.getElementsByTagName("p");
+                    let cellText = "";
+                    for (let k = 0; k < pEls.length; k++) {
+                        const pEl = pEls[k];
+                        if (findParentCell(pEl) !== tcEl) continue;
+                        
+                        const tEls = pEl.getElementsByTagNameNS ? pEl.getElementsByTagNameNS("*", "t") : pEl.getElementsByTagName("t");
+                        let pText = "";
+                        for (let l = 0; l < tEls.length; l++) {
+                            pText += tEls[l].textContent || "";
+                        }
+                        pText = pText.trim();
+                        if (pText) {
+                            cellText += (cellText ? "\n" : "") + pText;
+                        }
+                    }
+                    cells.push({
+                        colSpan: parseInt(colSpan, 10),
+                        rowSpan: parseInt(rowSpan, 10),
+                        text: cellText
+                    });
+                }
+                rows.push(cells);
+            }
+            return rows;
+        }
+
+        // JSZip Parser
+        async function extractHwpxParagraphs(file) {
+            const zip = await JSZip.loadAsync(file);
+            const sectionFile = zip.file("Contents/section0.xml");
+            if (!sectionFile) {
+                throw new Error("Contents/section0.xml 파일을 찾을 수 없습니다. 올바른 HWPX 파일이 아닙니다.");
+            }
+            const xmlText = await sectionFile.async("string");
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            
+            const paragraphs = [];
+            
+            function traverse(node) {
+                if (node.nodeType !== 1) return;
+                
+                const tagName = node.tagName.toLowerCase();
+                const localName = node.localName ? node.localName.toLowerCase() : tagName;
+                
+                if (localName === 'tbl') {
+                    const tableStruct = parseHwpxTableStructure(node);
+                    paragraphs.push(`[TABLE]:${JSON.stringify(tableStruct)}`);
+                    return;
+                }
+                
+                if (localName === 'p') {
+                    if (findParentCell(node) !== null) {
+                        return;
+                    }
+                    
+                    const tEls = node.getElementsByTagNameNS ? node.getElementsByTagNameNS("*", "t") : node.getElementsByTagName("t");
+                    let text = "";
+                    for (let j = 0; j < tEls.length; j++) {
+                        const tEl = tEls[j];
+                        if (findParentCell(tEl) === null) {
+                            text += tEl.textContent || "";
+                        }
+                    }
+                    text = text.trim();
+                    if (text) {
+                        paragraphs.push(text);
+                    }
+                    
+                    const tblEls = node.getElementsByTagNameNS ? node.getElementsByTagNameNS("*", "tbl") : node.getElementsByTagName("tbl");
+                    if (tblEls.length > 0) {
+                        for (let child of node.childNodes) {
+                            traverse(child);
+                        }
+                    }
+                    return;
+                }
+                
+                for (let child of node.childNodes) {
+                    traverse(child);
+                }
+            }
+            
+            traverse(xmlDoc.documentElement);
+            return paragraphs.map(p => {
+                if (p.startsWith("[TABLE]:")) {
+                    try {
+                        const tableObj = JSON.parse(p.substring(8));
+                        for (let r = 0; r < tableObj.length; r++) {
+                            for (let c = 0; c < tableObj[r].length; c++) {
+                                if (tableObj[r][c].text) {
+                                    tableObj[r][c].text = tableObj[r][c].text.replace(/&/g, "").replace(/</g, "[").replace(/>/g, "]");
+                                }
+                            }
+                        }
+                        return `[TABLE]:${JSON.stringify(tableObj)}`;
+                    } catch (e) {
+                        return p;
+                    }
+                } else {
+                    return p.replace(/&/g, "").replace(/</g, "[").replace(/>/g, "]");
+                }
+            });
+        }
+
+        function resetFile(type) {
+            uploadedFiles[type] = null;
+            parsedTexts[type] = [];
+
+            const emptyEl = document.getElementById(`content-${type}-empty`);
+            const filledEl = document.getElementById(`content-${type}-filled`);
+            const dropzoneEl = document.getElementById(`dropzone-${type}`);
+            const fileInput = document.getElementById(`file-${type}`);
+            
+            fileInput.value = '';
+            emptyEl.style.display = 'flex';
+            filledEl.style.display = 'none';
+            dropzoneEl.classList.remove('uploaded');
+
+            const resultsContainer = document.getElementById('results-container');
+            if (resultsContainer.classList.contains('show')) {
+                fullResetToInputState();
+            } else {
+                checkCompareButtonState();
+            }
+        }
+
+        function checkCompareButtonState() {
+            const btn = document.getElementById('btn-compare');
+            if (uploadedFiles.current && uploadedFiles.revised) {
+                btn.classList.add('active');
+                btn.removeAttribute('disabled');
+            } else {
+                btn.classList.remove('active');
+                btn.setAttribute('disabled', 'true');
+            }
+        }
+
+        function fullResetToInputState() {
+            uploadedFiles.current = null;
+            uploadedFiles.revised = null;
+            parsedTexts.current = [];
+            parsedTexts.revised = [];
+            comparisonRows = [];
+
+            ['current', 'revised'].forEach(type => {
+                const emptyEl = document.getElementById(`content-${type}-empty`);
+                const filledEl = document.getElementById(`content-${type}-filled`);
+                const dropzoneEl = document.getElementById(`dropzone-${type}`);
+                const fileInput = document.getElementById(`file-${type}`);
+                
+                fileInput.value = '';
+                emptyEl.style.display = 'flex';
+                filledEl.style.display = 'none';
+                dropzoneEl.classList.remove('uploaded');
+            });
+
+            const btnContainer = document.getElementById('btn-group-container');
+            btnContainer.innerHTML = `
+                <button class="btn btn-compare" id="btn-compare" onclick="generateDaebipyo()" disabled>
+                    <span>신·구조문대비표 생성</span>
+                </button>
+            `;
+
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.classList.remove('show');
+            setTimeout(() => {
+                resultsContainer.style.display = 'none';
+            }, 300);
+
+            checkCompareButtonState();
+        }
+
+        // Aligner & comparison logic
+        function generateDaebipyo() {
+            if (!uploadedFiles.current || !uploadedFiles.revised) return;
+
+            const loader = document.getElementById('loading-overlay');
+            const step1 = document.getElementById('step-1');
+            const step2 = document.getElementById('step-2');
+            const step3 = document.getElementById('step-3');
+            const step4 = document.getElementById('step-4');
+
+            loader.style.display = 'flex';
+            [step1, step2, step3, step4].forEach(step => {
+                step.className = 'loading-step-item';
+                step.children[0].textContent = '□';
+            });
+
+            setTimeout(() => {
+                step1.classList.add('done');
+                step1.children[0].textContent = '✓';
+                step2.classList.add('active');
+                
+                setTimeout(() => {
+                    step2.classList.replace('active', 'done');
+                    step2.children[0].textContent = '✓';
+                    step3.classList.add('active');
+
+                    setTimeout(() => {
+                        step3.classList.replace('active', 'done');
+                        step3.children[0].textContent = '✓';
+                        step4.classList.add('active');
+
+                        setTimeout(() => {
+                            step4.classList.replace('active', 'done');
+                            step4.children[0].textContent = '✓';
+
+                            setTimeout(() => {
+                                loader.style.display = 'none';
+                                executeComparisonEngine();
+                            }, 400);
+                        }, 550);
+                    }, 500);
+                }, 500);
+            }, 400);
+        }
+
+
+
+        // Helper: split text to tree node
+        function parseToNodes(paras) {
+            const nodes = [];
+            const articlePat = /^(제\d+조(?:의\d+)?)\s*(?:\(([^)]+)\))?/;
+            const paraPat = /^([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮])/;
+            const itemPat = /^(\d+(?:의\d+)?)\.\s*(.*)/;
+            const subitemPat = /^([가-힣])\.\s*(.*)/;
+            const annexPat = /^(별표\s*\d*(?:의\d+)?|\[별표\s*\d*(?:의\d+)?\]|별지\s*(?:제?\d+호\s*서식)?|\[별지\s*(?:제?\d+호\s*서식)?\])/;
+            const bigoPat = /^(?:※\s*)?비\s*고/;
+            
+            let currArtKey = "";
+            let currArtName = "";
+            let currPara = "";
+            let currItem = "";
+            let isAddenda = false;
+            
+            const tableCounts = {};
+            function getActiveParentKey() {
+                if (currItem) {
+                    return currPara ? `${currArtKey}-${currPara}-${currItem}` : `${currArtKey}-${currItem}`;
+                } else if (currPara) {
+                    return `${currArtKey}-${currPara}`;
+                } else {
+                    return currArtKey;
+                }
+            }
+            
+            for (let p of paras) {
+                p = p.trim();
+                if (!p) continue;
+                
+                // Detect entering Addenda (부칙) section
+                const isAddendaHeading = p === "부칙" || p.startsWith("부칙 ") || p.startsWith("부칙<") || p.startsWith("부칙 <") || /^\s*부\s*칙\s*$/.test(p);
+                if (isAddendaHeading) {
+                    isAddenda = true;
+                    currArtKey = `부칙-${p}`;
+                    currArtName = "";
+                    currPara = "";
+                    currItem = "";
+                    nodes.push({
+                        type: 'article',
+                        artKey: currArtKey,
+                        artName: "",
+                        key: currArtKey,
+                        text: p,
+                        num: p
+                    });
+                    continue;
+                }
+
+                // Handle table paragraphs
+                if (p.startsWith("[TABLE]:")) {
+                    const tableStruct = JSON.parse(p.substring(8));
+                    const parentKey = getActiveParentKey();
+                    if (!tableCounts[parentKey]) {
+                        tableCounts[parentKey] = 0;
+                    }
+                    tableCounts[parentKey]++;
+                    const key = `${parentKey}-table${tableCounts[parentKey]}`;
+                    
+                    nodes.push({
+                        type: 'table',
+                        artKey: currArtKey,
+                        key: key,
+                        tableData: tableStruct,
+                        text: p,
+                        num: '표'
+                    });
+                    continue;
+                }
+                
+                const mAnnex = p.match(annexPat);
+                const mBigo = p.match(bigoPat);
+                const mArt = p.match(articlePat);
+                const mPara = p.match(paraPat);
+                const mItem = p.match(itemPat);
+                const mSub = p.match(subitemPat);
+                
+                if (mAnnex) {
+                    currArtKey = mAnnex[1].trim();
+                    currPara = "";
+                    currItem = "";
+                    nodes.push({
+                        type: 'article',
+                        artKey: currArtKey,
+                        artName: "",
+                        key: currArtKey,
+                        text: p,
+                        num: currArtKey
+                    });
+                } else if (mBigo) {
+                    currItem = "비고";
+                    currPara = "";
+                    const key = `${currArtKey}-비고`;
+                    nodes.push({
+                        type: 'item',
+                        artKey: currArtKey,
+                        key: key,
+                        text: p,
+                        num: '비고'
+                    });
+                } else if (mArt) {
+                    // Check if paragraph 1 is inline with the article title (e.g. 제5조(국가 등의 책무) ① 국가와...)
+                    const artWithParaPat = /^(제\d+조(?:의\d+)?(?:\s*\(([^)]+)\))?)\s*(①\s*.*)/;
+                    const mArtWithPara = p.match(artWithParaPat);
+                    
+                    if (mArtWithPara) {
+                        const artText = mArtWithPara[1].trim();
+                        let rawArtKey = artText.match(/^(제\d+조(?:의\d+)?)/)[1];
+                        currArtKey = isAddenda ? `부칙-${rawArtKey}` : rawArtKey;
+                        currArtName = mArtWithPara[2] || "";
+                        currPara = "";
+                        currItem = "";
+                        nodes.push({
+                            type: 'article',
+                            artKey: currArtKey,
+                            artName: currArtName,
+                            key: currArtKey,
+                            text: artText,
+                            num: currArtKey
+                        });
+
+                        const paraText = mArtWithPara[3].trim();
+                        currPara = "①";
+                        const key = `${currArtKey}-${currPara}`;
+                        nodes.push({
+                            type: 'paragraph',
+                            artKey: currArtKey,
+                            key: key,
+                            text: paraText,
+                            num: currPara
+                        });
+                    } else {
+                        let rawArtKey = mArt[1];
+                        currArtKey = isAddenda ? `부칙-${rawArtKey}` : rawArtKey;
+                        currArtName = mArt[2] || "";
+                        currPara = "";
+                        currItem = "";
+                        nodes.push({
+                            type: 'article',
+                            artKey: currArtKey,
+                            artName: currArtName,
+                            key: currArtKey,
+                            text: p,
+                            num: currArtKey
+                        });
+                    }
+                } else if (mPara) {
+                    currPara = mPara[1];
+                    currItem = "";
+                    const key = `${currArtKey}-${currPara}`;
+                    nodes.push({
+                        type: 'paragraph',
+                        artKey: currArtKey,
+                        key: key,
+                        text: p,
+                        num: currPara
+                    });
+                } else if (mItem) {
+                    currItem = mItem[1];
+                    // Simplify key by removing '-item-' prefix to allow proper hierarchical parent resolution
+                    let key = currPara ? `${currArtKey}-${currPara}-${currItem}` : `${currArtKey}-${currItem}`;
+                    nodes.push({
+                        type: 'item',
+                        artKey: currArtKey,
+                        key: key,
+                        text: p,
+                        num: currItem
+                    });
+                } else if (mSub) {
+                    const subKey = mSub[1];
+                    let key = currPara ? `${currArtKey}-${currPara}-${currItem}-${subKey}` : `${currArtKey}-${currItem}-${subKey}`;
+                    nodes.push({
+                        type: 'subitem',
+                        artKey: currArtKey,
+                        key: key,
+                        text: p,
+                        num: subKey
+                    });
+                } else {
+                    if (p.startsWith("제") && (p.includes("장") || p.includes("절"))) {
+                        nodes.push({
+                            type: 'heading',
+                            key: p,
+                            text: p,
+                            num: p
+                        });
+                    } else {
+                        if (nodes.length > 0) {
+                            nodes[nodes.length - 1].text += " " + p;
+                        } else {
+                            nodes.push({
+                                type: 'unknown',
+                                key: p,
+                                text: p,
+                                num: ''
+                            });
+                        }
+                    }
+                }
+            }
+            return nodes;
+        }
+
+        function formatCellLine(line, isForHwp) {
+            const plainText = line.replace(/<[^>]+>/g, '').trim();
+            if (!plainText) return line;
+            
+            // 1. Signature check
+            const lastParenIndex = line.lastIndexOf('(');
+            if (lastParenIndex !== -1) {
+                const leftPart = line.substring(0, lastParenIndex);
+                const rightPart = line.substring(lastParenIndex);
+                const plainRight = rightPart.replace(/<[^>]+>/g, '').trim();
+                if (plainRight === '(서명 또는 인)' || plainRight === '(서명)' || plainRight === '(인)' || plainRight === '(서명 또는인)') {
+                    const label = leftPart.trim();
+                    const sig = rightPart.trim();
+                    if (isForHwp) {
+                        return `<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; border: none !important; margin: 0; padding: 0; border-collapse: collapse;"><tr style="border: none !important;"><td style="border: none !important; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none !important; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr></table>`;
+                    } else {
+                        return `<div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 10px;"><span>${label}</span><span>${sig}</span></div>`;
+                    }
+                }
+            }
+            
+            // 2. Date check
+            const isDate = /^\s*년\s*월\s*일\s*$/.test(plainText) || /^\s*20\s*\d*\s*\.\s*\d*\s*\.\s*\d*\s*\.?\s*$/.test(plainText);
+            if (isDate) {
+                if (isForHwp) {
+                    return `<div style="text-align: center; font-size: 10px; color: #000000;" align="center">${line}</div>`;
+                } else {
+                    return `<div style="text-align: center; font-size: 10px; width: 100%;">${line}</div>`;
+                }
+            }
+            
+            // 3. Submission destination check
+            const isSubmission = plainText.endsWith("귀하");
+            if (isSubmission) {
+                if (isForHwp) {
+                    return `<div style="text-align: center; font-weight: bold; font-size: 11px; margin-top: 10px; color: #000000;" align="center">${line}</div>`;
+                } else {
+                    return `<div style="text-align: center; font-weight: bold; font-size: 11px; margin-top: 10px; width: 100%;">${line}</div>`;
+                }
+            }
+            
+            return line;
+        }
+
+        function formatCellContent(content, isForHwp) {
+            if (!content) return "";
+            const lines = content.split(/<br\s*\/?>|\n/gi);
+            const formatted = lines.map(line => formatCellLine(line, isForHwp));
+            return formatted.join("<br>");
+        }
+
+        function renderTableStructureToHtml(rows, isForHwp = false) {
+            let borderStyle = isForHwp ? "border: 1px solid #000000;" : "border: 1px solid var(--border-color);";
+            let cellBorderStyle = isForHwp ? "border: 1px solid #000000;" : "border: 1px solid var(--border-color);";
+            let bgColorStyle = isForHwp ? "" : "background-color: var(--bg-secondary);";
+            let textColorStyle = isForHwp ? "color: #000000;" : "color: var(--text-primary);";
+            
+            let html = `<table class="hwp-imported-table" style="border-collapse: collapse; width: 100%; ${borderStyle} font-size: 8pt; margin: 5px 0; table-layout: auto; word-break: break-all; ${bgColorStyle} ${textColorStyle}">`;
+            for (let r = 0; r < rows.length; r++) {
+                html += '<tr>';
+                for (let c = 0; c < rows[r].length; c++) {
+                    const cell = rows[r][c];
+                    let cellContent = "";
+                    if (cell.html) {
+                        cellContent = formatCellContent(cell.html, isForHwp);
+                    } else {
+                        cellContent = formatCellContent(escapeHtml(cell.text), isForHwp);
+                    }
+                    
+                    let extraStyle = "";
+                    // Check if first row is a title cell (spans the entire table width and is alone in its row)
+                    if (r === 0 && rows[0].length === 1) {
+                        let bottomBorderColor = isForHwp ? "#000000" : "var(--text-primary)";
+                        let bgColor = isForHwp ? "#ffffff" : "var(--bg-secondary)";
+                        extraStyle = `border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: 2px double ${bottomBorderColor} !important; text-align: center !important; font-size: 8pt !important; font-weight: bold !important; padding: 10px 0 !important; background-color: ${bgColor} !important;`;
+                    }
+                    
+                    html += `<td colspan="${cell.colSpan}" rowspan="${cell.rowSpan}" style="${cellBorderStyle} padding: 3px 5px; vertical-align: top; font-size: 8pt; line-height: 1.3; ${extraStyle}">${cellContent}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            return html;
+        }
+
+        function compareTableStructures(currRows, revRows) {
+            if (currRows.length !== revRows.length) return null;
+            for (let r = 0; r < currRows.length; r++) {
+                if (currRows[r].length !== revRows[r].length) return null;
+                for (let c = 0; c < currRows[r].length; c++) {
+                    if (currRows[r][c].colSpan !== revRows[r][c].colSpan ||
+                        currRows[r][c].rowSpan !== revRows[r][c].rowSpan) {
+                        return null;
+                    }
+                }
+            }
+
+            // Structures match, compare cell-by-cell
+            const diffCurrRows = [];
+            const diffRevRows = [];
+
+            for (let r = 0; r < currRows.length; r++) {
+                const diffCurrCells = [];
+                const diffRevCells = [];
+                for (let c = 0; c < currRows[r].length; c++) {
+                    const currCell = currRows[r][c];
+                    const revCell = revRows[r][c];
+                    
+                    if (currCell.text === revCell.text) {
+                        diffCurrCells.push({
+                            colSpan: currCell.colSpan,
+                            rowSpan: currCell.rowSpan,
+                            html: escapeHtml(currCell.text).replace(/\n/g, "<br>")
+                        });
+                        diffRevCells.push({
+                            colSpan: revCell.colSpan,
+                            rowSpan: revCell.rowSpan,
+                            html: escapeHtml(revCell.text).replace(/\n/g, "<br>")
+                        });
+                    } else {
+                        // Diff the cell texts
+                        const diff = generateWordDiff(currCell.text, revCell.text);
+                        diffCurrCells.push({
+                            colSpan: currCell.colSpan,
+                            rowSpan: currCell.rowSpan,
+                            html: diff.currentHtml.replace(/\n/g, "<br>")
+                        });
+                        diffRevCells.push({
+                            colSpan: revCell.colSpan,
+                            rowSpan: revCell.rowSpan,
+                            html: diff.revisedHtml.replace(/\n/g, "<br>")
+                        });
+                    }
+                }
+                diffCurrRows.push(diffCurrCells);
+                diffRevRows.push(diffRevCells);
+            }
+
+            return {
+                currentHtml: renderTableStructureToHtml(diffCurrRows),
+                revisedHtml: renderTableStructureToHtml(diffRevRows)
+            };
+        }
+
+        function getParentKey(key) {
+            if (key.includes('-')) {
+                return key.substring(0, key.lastIndexOf('-'));
+            }
+            return null;
+        }
+
+        // Group unchanged siblings helper
+        function makeUnchangedRow(siblings) {
+            if (!siblings || siblings.length === 0) return null;
+            const first = siblings[0];
+            const last = siblings[siblings.length - 1];
+            
+            const prefix = first.num;
+            const suffix = last.num;
+            let rangeLabel = "";
+            
+            if (siblings.length === 1) {
+                rangeLabel = prefix;
+            } else if (siblings.length === 2) {
+                const cleanFirst = prefix.endsWith('.') ? prefix.slice(0, -1) : prefix;
+                const cleanLast = suffix.endsWith('.') ? suffix.slice(0, -1) : suffix;
+                const dot = prefix.endsWith('.') ? '.' : '';
+                rangeLabel = `${cleanFirst}·${cleanLast}${dot}`;
+            } else {
+                const cleanFirst = prefix.endsWith('.') ? prefix.slice(0, -1) : prefix;
+                const cleanLast = suffix.endsWith('.') ? suffix.slice(0, -1) : suffix;
+                const dot = prefix.endsWith('.') ? '.' : '';
+                rangeLabel = `${cleanFirst} ~ ${cleanLast}${dot}`;
+            }
+            
+            return {
+                key: first.key + '-unchanged',
+                type: 'keep',
+                title: first.artKey || first.key,
+                current: `${rangeLabel} (생  략)`,
+                revised: `${rangeLabel} (현행과 같음)`
+            };
+        }
+
+        // Domino-row detector helper
+        function isDominoRow(key) {
+            // Target specific domino shift in Article 5 Paragraphs 3 and 4
+            return key === '제5조-③' || key === '제5조-④';
+        }
+
+        // Deletion logic matcher (e.g. starts with "삭제" or "③ 삭제")
+        const deletionPat = /^\s*(?:[①-⑮]|\d+(?:의\d+)?\.)?\s*삭제/;
+        function isDeletedNode(node) {
+            if (!node) return false;
+            return deletionPat.test(node.text);
+        }
+
+        // HTML escape helper to prevent breaking markdown/tags inside content
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Two-way 어절 LCS Diff engine for Standard Red/Blue Coloring
+        function generateWordDiff(currText, revText) {
+            if (!currText) return { currentHtml: '', revisedHtml: `<span class="diff-added">${escapeHtml(revText)}</span>` };
+            if (!revText) return { currentHtml: `<span class="diff-deleted">${escapeHtml(currText)}</span>`, revisedHtml: '' };
+
+            const escCurr = escapeHtml(currText);
+            const escRev = escapeHtml(revText);
+
+            // Split strictly by spaces to compare whole words (eojeols) including brackets/punctuation
+            const curWords = escCurr.split(/(\s+)/).filter(x => x);
+            const revWords = escRev.split(/(\s+)/).filter(x => x);
+
+            const dp = Array(curWords.length + 1).fill().map(() => Array(revWords.length + 1).fill(0));
+
+            for (let i = 1; i <= curWords.length; i++) {
+                for (let j = 1; j <= revWords.length; j++) {
+                    if (curWords[i-1] === revWords[j-1]) {
+                        dp[i][j] = dp[i-1][j-1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+                    }
+                }
+            }
+
+            let i = curWords.length, j = revWords.length;
+            const curMatches = new Set();
+            const revMatches = new Set();
+            while (i > 0 && j > 0) {
+                if (curWords[i-1] === revWords[j-1]) {
+                    curMatches.add(i-1);
+                    revMatches.add(j-1);
+                    i--;
+                    j--;
+                } else if (dp[i-1][j] >= dp[i][j-1]) {
+                    i--;
+                } else {
+                    j--;
+                }
+            }
+
+            // Left side: Highlight deleted words in red
+            let leftResult = [];
+            let inDeleted = false;
+            for (let k = 0; k < curWords.length; k++) {
+                const isMatch = curMatches.has(k);
+                const word = curWords[k];
+                if (word.trim() === "") {
+                    if (inDeleted) {
+                        leftResult.push('</span>');
+                        inDeleted = false;
+                    }
+                    leftResult.push(word);
+                    continue;
+                }
+
+                if (!isMatch) {
+                    if (!inDeleted) {
+                        leftResult.push('<span class="diff-deleted">');
+                        inDeleted = true;
+                    }
+                    leftResult.push(word);
+                } else {
+                    if (inDeleted) {
+                        leftResult.push('</span>');
+                        inDeleted = false;
+                    }
+                    leftResult.push(word);
+                }
+            }
+            if (inDeleted) leftResult.push('</span>');
+
+            // Right side: Highlight added words in blue
+            let rightResult = [];
+            let inAdded = false;
+            for (let k = 0; k < revWords.length; k++) {
+                const isMatch = revMatches.has(k);
+                const word = revWords[k];
+                if (word.trim() === "") {
+                    if (inAdded) {
+                        rightResult.push('</span>');
+                        inAdded = false;
+                    }
+                    rightResult.push(word);
+                    continue;
+                }
+
+                if (!isMatch) {
+                    if (!inAdded) {
+                        rightResult.push('<span class="diff-added">');
+                        inAdded = true;
+                    }
+                    rightResult.push(word);
+                } else {
+                    if (inAdded) {
+                        rightResult.push('</span>');
+                        inAdded = false;
+                    }
+                    rightResult.push(word);
+                }
+            }
+            if (inAdded) rightResult.push('</span>');
+
+            return {
+                currentHtml: leftResult.join(""),
+                revisedHtml: rightResult.join("")
+            };
+        }
+
+        // Global count tracker for badge counts
+        let globalCountMap = {
+            modified: 0,
+            keep: 0,
+            added: 0,
+            deleted: 0
+        };
+
+        // Recursive subtree comparison helper
+        function compareSubtree(parentKey, nodeType, currNodes, revNodes, currMap, revMap, changedKeys) {
+            const results = [];
+            
+            // Safe filter children (including table nodes)
+            const currS = currNodes.filter(n => (n.type === nodeType || n.type === 'table') && getParentKey(n.key) === parentKey);
+            const revS = revNodes.filter(n => (n.type === nodeType || n.type === 'table') && getParentKey(n.key) === parentKey);
+            
+            // Sibling key merger helper
+            function mergeSiblingKeys(cS, rS) {
+                const aligned = [];
+                let cIdx = 0, rIdx = 0;
+                const revKeysSet = new Set(rS.map(n => n.key));
+                const currKeysSet = new Set(cS.map(n => n.key));
+                
+                while (cIdx < cS.length || rIdx < rS.length) {
+                    if (cIdx < cS.length && rIdx < rS.length) {
+                        const ck = cS[cIdx].key;
+                        const rk = rS[rIdx].key;
+                        if (ck === rk) {
+                            aligned.push(ck);
+                            cIdx++;
+                            rIdx++;
+                        } else {
+                            if (!revKeysSet.has(ck)) {
+                                aligned.push(ck);
+                                cIdx++;
+                            } else if (!currKeysSet.has(rk)) {
+                                aligned.push(rk);
+                                rIdx++;
+                            } else {
+                                aligned.push(rk);
+                                rIdx++;
+                            }
+                        }
+                    } else if (cIdx < cS.length) {
+                        aligned.push(cS[cIdx].key);
+                        cIdx++;
+                    } else {
+                        aligned.push(rS[rIdx].key);
+                        rIdx++;
+                    }
+                }
+                return aligned;
+            }
+
+            // Descendant change checker
+            function hasDescendantChange(key) {
+                if (changedKeys.has(key)) return true;
+                const prefix = key + '-';
+                for (let ck of changedKeys) {
+                    if (ck.startsWith(prefix)) return true;
+                }
+                return false;
+            }
+
+            let unchangedAccum = [];
+
+            function flushUnchanged() {
+                if (unchangedAccum.length === 0) return;
+                const row = makeUnchangedRow(unchangedAccum);
+                if (row) {
+                    results.push({
+                        key: row.key,
+                        type: 'keep',
+                        current: row.current,
+                        revised: row.revised
+                    });
+                }
+                unchangedAccum = [];
+            }
+
+            const alignedKeys = mergeSiblingKeys(currS, revS);
+
+            for (let key of alignedKeys) {
+                const hasChange = hasDescendantChange(key);
+                
+                if (hasChange) {
+                    flushUnchanged();
+
+                    const cNode = currMap[key];
+                    const rNode = revMap[key];
+
+                    if (!cNode) {
+                        // Added
+                        results.push({
+                            key: key,
+                            type: 'added',
+                            current: `<span class="diff-deleted">신설</span>`,
+                            revised: rNode.type === 'table' ? `<div class="table-added-wrapper" style="border: 1px solid #0052cc; padding: 2px; background-color: #eff6ff;">${renderTableStructureToHtml(rNode.tableData)}</div>` : `<span class="diff-added">${escapeHtml(rNode.text)}</span>`
+                        });
+                    } else if (!rNode || (isDeletedNode(rNode) && !isDeletedNode(cNode))) {
+                        // Deleted
+                        results.push({
+                            key: key,
+                            type: 'deleted',
+                            current: cNode.type === 'table' ? `<div class="table-deleted-wrapper" style="border: 1px solid #dc2626; padding: 2px; background-color: #fef2f2;">${renderTableStructureToHtml(cNode.tableData)}</div>` : `<span class="diff-deleted deleted-text">${escapeHtml(cNode.text)}</span>`,
+                            revised: `<span class="diff-deleted">삭제</span>`
+                        });
+                    } else if (cNode.text !== rNode.text) {
+                        // Modified or Domino Shifting
+                        if (cNode.type === 'table' && rNode.type === 'table') {
+                            const compared = compareTableStructures(cNode.tableData, rNode.tableData);
+                            if (compared) {
+                                results.push({
+                                    key: key,
+                                    type: 'modified',
+                                    current: compared.currentHtml,
+                                    revised: compared.revisedHtml
+                                });
+                            } else {
+                                results.push({
+                                    key: key,
+                                    type: 'modified',
+                                    current: `<div class="table-deleted-wrapper" style="border: 1px solid #dc2626; padding: 2px; background-color: #fef2f2;">${renderTableStructureToHtml(cNode.tableData)}</div>`,
+                                    revised: `<div class="table-added-wrapper" style="border: 1px solid #0052cc; padding: 2px; background-color: #eff6ff;">${renderTableStructureToHtml(rNode.tableData)}</div>`
+                                });
+                            }
+                        } else if (isDominoRow(key)) {
+                            results.push({
+                                key: key,
+                                type: 'modified',
+                                current: `<span class="diff-deleted">${escapeHtml(cNode.text)}</span>`,
+                                revised: `<span class="diff-added">${escapeHtml(rNode.text)}</span>`
+                            });
+                        } else {
+                            const diff = generateWordDiff(cNode.text, rNode.text);
+                            results.push({
+                                key: key,
+                                type: 'modified',
+                                current: diff.currentHtml,
+                                revised: diff.revisedHtml
+                            });
+                        }
+                    } else {
+                        // Container (unaltered itself but has child edits)
+                        results.push({
+                            key: key,
+                            type: 'container',
+                            current: cNode.type === 'table' ? renderTableStructureToHtml(cNode.tableData) : escapeHtml(cNode.text),
+                            revised: rNode.type === 'table' ? renderTableStructureToHtml(rNode.tableData) : escapeHtml(rNode.text)
+                        });
+                    }
+
+                    // Traverse subtree layers
+                    let childType = null;
+                    if (nodeType === 'article') {
+                        const hasParas = [...revNodes, ...currNodes].some(n => n.type === 'paragraph' && getParentKey(n.key) === key);
+                        childType = hasParas ? 'paragraph' : 'item';
+                    } else if (nodeType === 'paragraph') {
+                        childType = 'item';
+                    } else if (nodeType === 'item') {
+                        childType = 'subitem';
+                    }
+
+                    if (childType) {
+                        const childResults = compareSubtree(key, childType, currNodes, revNodes, currMap, revMap, changedKeys);
+                        results.push(...childResults);
+                    }
+                } else {
+                    const node = currMap[key] || revMap[key];
+                    unchangedAccum.push(node);
+                }
+            }
+            flushUnchanged();
+
+            return results;
+        }
+
+        function cleanRegulationName(fileName) {
+            if (!fileName) return "";
+            const cleanFileName = fileName.replace(/\.[a-zA-Z0-9]+$/, '') // Remove extension
+                                           .replace(/\s*\([^)]*\)/g, '')   // Remove (...)
+                                           .replace(/\s*\[[^\]]*\]/g, '')  // Remove [...]
+                                           .replace(/\s*현행[a-zA-Z0-9]*$/g, '') // Remove trailing "현행" or "현행S"
+                                           .replace(/\s*개정[a-zA-Z0-9]*$/g, '') // Remove trailing "개정" or "개정S"
+                                           .trim();
+            
+            const genericNames = ['현행안', '개정안', '현행', '개정', '신구조문대비표', '대비표', '비교표', '수정안', '정정안', '수정', '정정'];
+            if (cleanFileName && !genericNames.includes(cleanFileName) && cleanFileName.length >= 4) {
+                return cleanFileName;
+            }
+            return "";
+        }
+
+        function extractFromParagraphs(paragraphs) {
+            if (!paragraphs || paragraphs.length === 0) return "";
+            
+            const candidates = [];
+            for (let i = 0; i < Math.min(15, paragraphs.length); i++) {
+                const p = paragraphs[i].trim();
+                if (p.startsWith('[TABLE]:') || !p) continue;
+                if (p.includes('법제처') || p.includes('국가법령정보센터')) continue;
+                if (/^\d+\s*-\s*$/.test(p) || /^\d+$/.test(p)) continue;
+                if (p.startsWith('제정') || p.startsWith('개정') || p.startsWith('일부개정') || p.startsWith('타법개정')) continue;
+                if (p.includes('[시행') || p.includes('[법률')) continue;
+                
+                // Clean page number headers (e.g. 2030-)
+                let cleaned = p.replace(/^\d{4}-\d*/g, '')
+                               .replace(/^\d+-\s*/g, '')
+                               .replace(/^\d+\s*/g, '')
+                               .trim();
+                
+                if (cleaned.length < 3 || cleaned.length > 50) continue;
+                candidates.push(cleaned);
+            }
+            
+            if (candidates.length === 0) return "";
+            
+            // Count frequencies
+            const counts = {};
+            candidates.forEach(c => {
+                counts[c] = (counts[c] || 0) + 1;
+            });
+            
+            const titleEndings = ['법', '령', '규칙', '규정', '강령', '조례', '지침', '가이드', '매뉴얼', '지침서', '약관', '기준', '행동강령'];
+            
+            // Sort keys by priority and frequency
+            const keys = Object.keys(counts);
+            keys.sort((a, b) => {
+                const endsA = titleEndings.some(suffix => a.endsWith(suffix));
+                const endsB = titleEndings.some(suffix => b.endsWith(suffix));
+                
+                if (endsA !== endsB) {
+                    return endsA ? -1 : 1;
+                }
+                if (counts[a] !== counts[b]) {
+                    return counts[b] - counts[a];
+                }
+                return a.length - b.length;
+            });
+            
+            return keys[0] || "";
+        }
+
+        // HWPX Comparison engine implemented in JS (1 row per Article layout)
+        function executeComparisonEngine() {
+            const currNodes = parseToNodes(parsedTexts.current);
+            const revNodes = parseToNodes(parsedTexts.revised);
+
+            // Dynamically update regulation subtitle
+            let title = "";
+            if (uploadedFiles.revised) {
+                title = cleanRegulationName(uploadedFiles.revised.name);
+            }
+            if (!title && uploadedFiles.current) {
+                title = cleanRegulationName(uploadedFiles.current.name);
+            }
+            if (!title) {
+                const paragraphs = (parsedTexts.revised && parsedTexts.revised.length > 0) ? parsedTexts.revised : parsedTexts.current;
+                title = extractFromParagraphs(paragraphs);
+            }
+            if (!title) {
+                title = '개인정보 보호법';
+            }
+            const formattedSubtitle = title.startsWith('「') && title.endsWith('」') ? title : `「${title}」`;
+            const subtitleEl = document.getElementById('daebipyo-subtitle');
+            if (subtitleEl) {
+                subtitleEl.textContent = formattedSubtitle;
+            }
+
+            const currMap = {};
+            currNodes.forEach(n => currMap[n.key] = n);
+            const revMap = {};
+            revNodes.forEach(n => revMap[n.key] = n);
+
+
+
+            // Detect changed keys
+            const changedKeys = new Set();
+            for (let key in revMap) {
+                const rNode = revMap[key];
+                const cNode = currMap[key];
+                if (!cNode) {
+                    changedKeys.add(key);
+                } else if (isDeletedNode(rNode) && !isDeletedNode(cNode)) {
+                    changedKeys.add(key);
+                } else if (rNode.text !== cNode.text) {
+                    changedKeys.add(key);
+                }
+            }
+            for (let key in currMap) {
+                if (!revMap[key]) {
+                    changedKeys.add(key);
+                }
+            }
+
+            // Descendant change checker
+            function hasDescendantChange(key) {
+                if (changedKeys.has(key)) return true;
+                const prefix = key + '-';
+                for (let ck of changedKeys) {
+                    if (ck.startsWith(prefix)) return true;
+                }
+                return false;
+            }
+
+            // Align the two lists of article keys in the exact order they appear in the documents
+            const currArticles = currNodes.filter(n => n.type === 'article').map(n => n.key);
+            const revArticles = revNodes.filter(n => n.type === 'article').map(n => n.key);
+            
+            const topArticles = [];
+            const addedArticles = new Set();
+            let cIdx = 0, rIdx = 0;
+            
+            while (cIdx < currArticles.length || rIdx < revArticles.length) {
+                if (cIdx < currArticles.length && rIdx < revArticles.length) {
+                    const ck = currArticles[cIdx];
+                    const rk = revArticles[rIdx];
+                    if (ck === rk) {
+                        if (!addedArticles.has(ck)) {
+                            topArticles.push(ck);
+                            addedArticles.add(ck);
+                        }
+                        cIdx++;
+                        rIdx++;
+                    } else {
+                        const rkInCurr = currArticles.slice(cIdx).indexOf(rk);
+                        const ckInRev = revArticles.slice(rIdx).indexOf(ck);
+                        
+                        if (rkInCurr === -1) {
+                            if (!addedArticles.has(rk)) {
+                                topArticles.push(rk);
+                                addedArticles.add(rk);
+                            }
+                            rIdx++;
+                        } else if (ckInRev === -1) {
+                            if (!addedArticles.has(ck)) {
+                                topArticles.push(ck);
+                                addedArticles.add(ck);
+                            }
+                            cIdx++;
+                        } else {
+                            if (rkInCurr < ckInRev) {
+                                if (!addedArticles.has(rk)) {
+                                    topArticles.push(rk);
+                                    addedArticles.add(rk);
+                                }
+                                rIdx++;
+                            } else {
+                                if (!addedArticles.has(ck)) {
+                                    topArticles.push(ck);
+                                    addedArticles.add(ck);
+                                }
+                                cIdx++;
+                            }
+                        }
+                    }
+                } else if (cIdx < currArticles.length) {
+                    const ck = currArticles[cIdx];
+                    if (!addedArticles.has(ck)) {
+                        topArticles.push(ck);
+                        addedArticles.add(ck);
+                    }
+                    cIdx++;
+                } else {
+                    const rk = revArticles[rIdx];
+                    if (!addedArticles.has(rk)) {
+                        topArticles.push(rk);
+                        addedArticles.add(rk);
+                    }
+                    rIdx++;
+                }
+            }
+
+            comparisonRows = [];
+            globalCountMap = { modified: 0, keep: 0, added: 0, deleted: 0 };
+
+            for (let art of topArticles) {
+                if (hasDescendantChange(art)) {
+                    const cNode = currMap[art];
+                    const rNode = revMap[art];
+
+                    let artLeftText = cNode ? cNode.text : "";
+                    let artRightText = rNode ? rNode.text : "";
+
+                    const hasParas = [...revNodes, ...currNodes].some(n => n.type === 'paragraph' && getParentKey(n.key) === art);
+                    const childResults = compareSubtree(art, hasParas ? 'paragraph' : 'item', currNodes, revNodes, currMap, revMap, changedKeys);
+
+                    // Track flags for filtering
+                    const containsAdded = childResults.some(r => r.type === 'added');
+                    const containsDeleted = childResults.some(r => r.type === 'deleted');
+                    const containsModified = childResults.some(r => r.type === 'modified');
+                    const containsKeep = childResults.some(r => r.type === 'keep');
+
+                    // Global counts tracking for badge stats
+                    childResults.forEach(r => {
+                        if (r.type !== 'container') {
+                            globalCountMap[r.type]++;
+                        }
+                    });
+                    if (cNode && rNode && cNode.text !== rNode.text) {
+                        globalCountMap.modified++;
+                    } else if (!cNode) {
+                        globalCountMap.added++;
+                    } else if (!rNode) {
+                        globalCountMap.deleted++;
+                    }
+
+                    const leftHtmls = [];
+                    const rightHtmls = [];
+
+                    // Merge title with first child omission range inline (e.g. 제5조(국가 등의 책무) ①ㆍ② (생  략))
+                    let startChildIdx = 0;
+                    if (cNode && rNode && childResults.length > 0) {
+                        const firstChild = childResults[0];
+                        if (firstChild.type === 'keep' && firstChild.key.startsWith(art + '-①')) {
+                            leftHtmls.push(`<strong>${escapeHtml(artLeftText)} ${firstChild.current}</strong>`);
+                            rightHtmls.push(`<strong>${escapeHtml(artRightText)} ${firstChild.revised}</strong>`);
+                            startChildIdx = 1;
+                        } else {
+                            leftHtmls.push(`<strong>${escapeHtml(artLeftText)}</strong>`);
+                            rightHtmls.push(`<strong>${escapeHtml(artRightText)}</strong>`);
+                        }
+                    } else {
+                        if (cNode) leftHtmls.push(`<strong>${escapeHtml(artLeftText)}</strong>`);
+                        if (rNode) rightHtmls.push(`<strong>${escapeHtml(artRightText)}</strong>`);
+                    }
+
+                    // Push rest of sub-clauses
+                    for (let idx = startChildIdx; idx < childResults.length; idx++) {
+                        const child = childResults[idx];
+                        leftHtmls.push(child.current);
+                        rightHtmls.push(child.revised);
+                    }
+
+                    // Format as multi-line cell blocks
+                    const leftCellHtml = leftHtmls.map(h => `<div style="margin-bottom: 6px;">${formatCellContent(h, false)}</div>`).join("");
+                    const rightCellHtml = rightHtmls.map(h => `<div style="margin-bottom: 6px;">${formatCellContent(h, false)}</div>`).join("");
+
+                    comparisonRows.push({
+                        key: art,
+                        type: 'modified',
+                        contains: {
+                            added: containsAdded,
+                            deleted: containsDeleted,
+                            modified: containsModified,
+                            keep: containsKeep
+                        },
+                        title: art,
+                        current: leftCellHtml,
+                        revised: rightCellHtml
+                    });
+                }
+            }
+
+            renderResults();
+        }
+
+        // DOM Render results (1-row-per-article table renderer)
+        function renderResults() {
+            const tbody = document.getElementById('comparison-table-body');
+            tbody.innerHTML = '';
+
+            comparisonRows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-type', row.type);
+                tr.className = `status-${row.type}`;
+
+                // Table cells now contain pre-rendered HTML flows for all child clauses
+                tr.innerHTML = `
+                    <td class="col-current">${row.current}</td>
+                    <td class="col-revised">${row.revised}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Update badge counts using the accumulated globalCountMap
+            document.getElementById('total-count').textContent = comparisonRows.length;
+            document.getElementById('count-modified').textContent = globalCountMap.modified;
+            document.getElementById('count-keep').textContent = globalCountMap.keep;
+            document.getElementById('count-added').textContent = globalCountMap.added;
+            document.getElementById('count-deleted').textContent = globalCountMap.deleted;
+
+            // Transition main controls to the Finished State
+            const btnContainer = document.getElementById('btn-group-container');
+            btnContainer.innerHTML = `
+                <button class="btn btn-compare completed-state" id="btn-compare" onclick="generateDaebipyo()">
+                    <span>신·구조문대비표 생성</span>
+                </button>
+                <button class="btn btn-download" onclick="downloadDaebipyoHwp()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>신구조문대비표 다운로드</span>
+                </button>
+                <button class="btn btn-reset" onclick="fullResetToInputState()">
+                    <span>초기화</span>
+                </button>
+            `;
+
+            // Display Results
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.style.display = 'block';
+            
+            requestAnimationFrame(() => {
+                resultsContainer.classList.add('show');
+            });
+            
+            filterTable('all');
+        }
+
+        // Table filters
+        function filterTable(type) {
+            currentFilter = type;
+            const rows = document.querySelectorAll('#comparison-table-body tr');
+            const badges = document.querySelectorAll('.badge-filter');
+
+            badges.forEach(badge => {
+                if (badge.getAttribute('data-type') === type) {
+                    badge.classList.add('active');
+                } else {
+                    badge.classList.remove('active');
+                }
+            });
+
+            comparisonRows.forEach((row, idx) => {
+                const tr = rows[idx];
+                if (!tr) return;
+
+                if (type === 'all') {
+                    tr.style.display = '';
+                } else {
+                    // Show article row if it contains sub-clauses matching the filter type
+                    const match = (row.contains && row.contains[type]) || row.type === type;
+                    if (match) {
+                        tr.style.display = '';
+                    } else {
+                        tr.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Download comparative table as formal OLE HTML document (naming as .hwpx for direct opening!)
+        function downloadDaebipyoHwp() {
+            const tableElement = document.getElementById('comparison-table');
+            if (!tableElement) return;
+
+            // Gather editable text values dynamically from the screen
+            const docTitle = document.getElementById('daebipyo-title').innerText.trim();
+            const docSubtitle = document.getElementById('daebipyo-subtitle').innerText.trim();
+            const currentHeaderTitle = document.getElementById('header-current-title').innerText.trim();
+            const currentHeaderMeta = document.getElementById('header-current-meta').innerText.trim();
+            const revisedHeaderTitle = document.getElementById('header-revised-title').innerText.trim();
+            const revisedHeaderMeta = document.getElementById('header-revised-meta').innerText.trim();
+
+            const clonedTable = tableElement.cloneNode(true);
+            
+            // Show all rows in the downloaded version
+            const rows = clonedTable.querySelectorAll(':scope > tbody > tr');
+            rows.forEach(row => row.style.display = '');
+
+            // Inject the evaluated header labels into cloned thead for export consistency
+            const thead = clonedTable.querySelector('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th style="width: 50%; padding: 12px; border: 1px solid #000000; background-color: #f2f5f9; text-align: center; vertical-align: top;" width="50%">
+                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #000000; text-align: center;">${currentHeaderTitle}</div>
+                        <div style="font-weight: normal; font-size: 11px; color: #555555; text-align: center;">${currentHeaderMeta}</div>
+                    </th>
+                    <th style="width: 50%; padding: 12px; border: 1px solid #000000; background-color: #f2f5f9; text-align: center; vertical-align: top;" width="50%">
+                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #000000; text-align: center;">${revisedHeaderTitle}</div>
+                        <div style="font-weight: normal; font-size: 11px; color: #555555; text-align: center;">${revisedHeaderMeta}</div>
+                    </th>
+                </tr>
+            `;
+
+            // Convert flexbox divs to table elements in clonedTable before saving
+            const tds = clonedTable.querySelectorAll('td');
+            tds.forEach(td => {
+                const divs = td.querySelectorAll('div');
+                divs.forEach(div => {
+                    if (div.style.display === 'flex') {
+                        const spans = div.querySelectorAll('span');
+                        if (spans.length === 2) {
+                            const label = spans[0].innerHTML;
+                            const sig = spans[1].innerHTML;
+                            const hwpTable = document.createElement('table');
+                            hwpTable.setAttribute('border', '0');
+                            hwpTable.setAttribute('cellspacing', '0');
+                            hwpTable.setAttribute('cellpadding', '0');
+                            hwpTable.setAttribute('style', 'width: 100%; border: none !important; margin: 0; padding: 0; border-collapse: collapse;');
+                            hwpTable.innerHTML = `<tr style="border: none !important;"><td style="border: none !important; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none !important; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr>`;
+                            div.parentNode.replaceChild(hwpTable, div);
+                        }
+                    } else if (div.style.textAlign === 'center') {
+                        div.setAttribute('align', 'center');
+                        div.style.color = '#000000';
+                    }
+                });
+            });
+
+            // Convert CSS classes to inline styles for direct Hancom Office OLE translation compatibility
+            const spans = clonedTable.querySelectorAll('span');
+            spans.forEach(span => {
+                if (span.classList.contains('diff-deleted')) {
+                    if (span.classList.contains('deleted-text')) {
+                        span.setAttribute('style', 'color: #dc2626 !important; font-weight: bold; text-decoration: line-through !important;');
+                    } else {
+                        span.setAttribute('style', 'color: #dc2626 !important; font-weight: bold; text-decoration: none;');
+                    }
+                } else if (span.classList.contains('diff-added')) {
+                    span.setAttribute('style', 'color: #0052cc !important; font-weight: bold; text-decoration: none;');
+                } else if (span.classList.contains('status-keep')) {
+                    span.setAttribute('style', 'color: #777777 !important; font-style: normal;');
+                }
+            });
+
+            // Format nested tables for HWP compatibility
+            const nestedTables = clonedTable.querySelectorAll('table.hwp-imported-table');
+            nestedTables.forEach(nt => {
+                nt.setAttribute('border', '1');
+                nt.setAttribute('cellspacing', '0');
+                nt.setAttribute('cellpadding', '4');
+                nt.setAttribute('width', '100%');
+                nt.setAttribute('style', 'border-collapse: collapse; width: 100%; margin: 5px 0; font-size: 8pt; border: 1px solid #000000; color: #000000; table-layout: fixed; word-break: break-all;');
+                
+                // Set explicit font size on all spans and divs inside this nested table to bypass OLE style inheritance bug
+                const innerElements = nt.querySelectorAll('span, div');
+                innerElements.forEach(el => {
+                    let style = el.getAttribute('style') || "";
+                    if (style && !style.endsWith(';')) style += ';';
+                    style = style.replace(/font-size\s*:\s*[^;]+;?/gi, '');
+                    el.setAttribute('style', style + ' font-size: 8pt !important;');
+                });
+
+                const ntTds = nt.querySelectorAll('td, th');
+                ntTds.forEach(td => {
+                    let alignAttr = td.getAttribute('align') || '';
+                    if (!alignAttr && (td.style.textAlign === 'center' || td.classList.contains('center-text'))) {
+                        alignAttr = 'center';
+                    }
+                    
+                    let extraStyle = "";
+                    if (td.style.fontWeight === 'bold' || td.style.fontSize === '14px' || td.style.cssText.indexOf('double') !== -1) {
+                        extraStyle = "border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: 2px double #000000 !important; font-size: 8pt !important; font-weight: bold !important; padding: 8px 0 !important; background-color: #ffffff !important;";
+                        alignAttr = 'center';
+                    } else {
+                        extraStyle = "border: 1px solid #000000 !important;";
+                    }
+                    
+                    td.setAttribute('style', `padding: 4px; vertical-align: top; font-size: 8pt; color: #000000; line-height: 1.3; word-break: break-all; ${extraStyle}`);
+                    if (alignAttr) {
+                        td.setAttribute('align', alignAttr);
+                    }
+                    
+                    const innerDivs = td.querySelectorAll('div');
+                    innerDivs.forEach(div => {
+                        if (div.style.display === 'flex') {
+                            const spans = div.querySelectorAll('span');
+                            if (spans.length === 2) {
+                                const label = spans[0].innerHTML;
+                                const sig = spans[1].innerHTML;
+                                const hwpTable = document.createElement('table');
+                                hwpTable.setAttribute('border', '0');
+                                hwpTable.setAttribute('cellspacing', '0');
+                                hwpTable.setAttribute('cellpadding', '0');
+                                hwpTable.setAttribute('style', 'width: 100%; border: none !important; margin: 0; padding: 0; border-collapse: collapse;');
+                                hwpTable.innerHTML = `<tr style="border: none !important;"><td style="border: none !important; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none !important; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr>`;
+                                div.parentNode.replaceChild(hwpTable, div);
+                            }
+                        } else if (div.style.textAlign === 'center') {
+                            div.setAttribute('align', 'center');
+                            div.style.color = '#000000';
+                        }
+                    });
+                });
+            });
+
+            // Set explicit table styling and attributes for Hancom Office translation
+            clonedTable.setAttribute('border', '1');
+            clonedTable.setAttribute('cellspacing', '0');
+            clonedTable.setAttribute('cellpadding', '10');
+            clonedTable.setAttribute('width', '100%');
+            clonedTable.setAttribute('style', 'width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; border: 1px solid #000000; table-layout: fixed; word-break: break-all;');
+
+            // Fix cell widths and borders in tbody (scoped to top level only!)
+            const topTds = clonedTable.querySelectorAll(':scope > tbody > tr > td');
+            topTds.forEach(td => {
+                td.setAttribute('width', '50%');
+                td.setAttribute('style', 'width: 50%; padding: 10px; border: 1px solid #000000; vertical-align: top; line-height: 1.6; word-break: break-all;');
+            });
+
+            const fullHtmlContent = `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>${docTitle}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin-top: 20mm;
+            margin-bottom: 20mm;
+            margin-left: 20mm;
+            margin-right: 20mm;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Dotum', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #111111;
+            background-color: #ffffff;
+        }
+        .title-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        h2 {
+            font-size: 24px;
+            margin-bottom: 6px;
+            font-weight: bold;
+            display: inline-block;
+            border-bottom: 3px double #000000;
+            padding-bottom: 4px;
+        }
+        .subtitle {
+            font-size: 15px;
+            font-weight: bold;
+            color: #444444;
+            margin-top: 5px;
+        }
+        .hwp-imported-table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+            margin: 5px 0 !important;
+            border: 1px solid #000000 !important;
+            font-size: 8pt !important;
+            color: #000000 !important;
+        }
+        .hwp-imported-table td, .hwp-imported-table th {
+            padding: 3px 5px !important;
+            border: 1px solid #000000 !important;
+            font-size: 8pt !important;
+            color: #000000 !important;
+        }
+        .table-deleted-wrapper {
+            border: 1px solid #dc2626 !important;
+            padding: 2px !important;
+            background-color: #fef2f2 !important;
+        }
+        .table-added-wrapper {
+            border: 1px solid #0052cc !important;
+            padding: 2px !important;
+            background-color: #eff6ff !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="title-container" style="text-align: center; margin-bottom: 15px;">
+        <h2 style="font-size: 24px; font-weight: bold; border-bottom: 3px double #000000; padding-bottom: 4px; margin: 0 0 10px 0; text-align: center; display: inline-block;">${docTitle}</h2>
+        <p align="center" class="subtitle" style="font-size: 15px; font-weight: bold; color: #444444; text-align: center; margin: 0;">${docSubtitle}</p>
+    </div>
+    ${clonedTable.outerHTML}
+</body>
+</html>
+            `;
+
+            // Create blob with HTML content and set mime type
+            const blob = new Blob([fullHtmlContent], { type: 'application/octet-stream;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            
+            // Download file named as .hwpx so Hancom office opens it directly as an HWPX document!
+            downloadLink.download = `${docTitle}_${new Date().toISOString().slice(0, 10)}.hwpx`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
