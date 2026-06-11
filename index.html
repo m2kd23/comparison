@@ -250,6 +250,14 @@
             min-height: 220px;
         }
 
+        .upload-box-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
         .upload-box:hover {
             border-color: var(--primary);
             background-color: rgba(99, 102, 241, 0.02);
@@ -477,7 +485,7 @@
             box-shadow: var(--dialog-shadow);
             padding: 3rem;
             text-align: center;
-            max-width: 450px;
+            max-width: 600px;
             width: 90%;
             display: flex;
             flex-direction: column;
@@ -512,11 +520,11 @@
             margin-top: 1rem;
             font-family: monospace;
             font-size: 0.85rem;
-            height: 110px;
+            height: auto;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            gap: 0.35rem;
+            gap: 0.5rem;
         }
 
         .loading-step-item {
@@ -1036,7 +1044,7 @@
                     <span>□</span> <span>조·항·호 정형 구조 트리 생성 중...</span>
                 </div>
                 <div class="loading-step-item" id="step-3">
-                    <span>□</span> <span>법제처 양식에 맞춰 수평 정렬 정합성 분석 중...</span>
+                    <span>□</span> <span>신구조문대비표 생성 기준에 따라 수평 정렬 정합성 분석 중...</span>
                 </div>
                 <div class="loading-step-item" id="step-4">
                     <span>□</span> <span>변경점 실시간 대조 및 Diff 하이라이팅 완료!</span>
