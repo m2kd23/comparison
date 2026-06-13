@@ -1575,14 +1575,30 @@
                         currArtName = mArt[2] || "";
                         currPara = "";
                         currItem = "";
+                        
+                        const fullTitle = mArt[0].trim();
+                        const bodyText = p.substring(mArt[0].length).trim();
+                        
                         nodes.push({
                             type: 'article',
                             artKey: currArtKey,
                             artName: currArtName,
                             key: currArtKey,
-                            text: p,
+                            text: fullTitle,
                             num: currArtKey
                         });
+                        
+                        if (bodyText) {
+                            currPara = "body";
+                            const key = `${currArtKey}-${currPara}`;
+                            nodes.push({
+                                type: 'paragraph',
+                                artKey: currArtKey,
+                                key: key,
+                                text: bodyText,
+                                num: ""
+                            });
+                        }
                     }
                 } else if (mPara) {
                     currPara = mPara[1];
@@ -2369,19 +2385,30 @@
 
                     // Merge title with first child omission range inline (e.g. 제5조(국가 등의 책무) ①ㆍ② (생  략))
                     let startChildIdx = 0;
+                    let leftTitle = artLeftText;
+                    let rightTitle = artRightText;
+                    let titleDiff = { currentHtml: escapeHtml(leftTitle), revisedHtml: escapeHtml(rightTitle) };
+                    if (leftTitle && rightTitle && leftTitle !== rightTitle) {
+                        titleDiff = generateWordDiff(leftTitle, rightTitle);
+                    } else if (!leftTitle && rightTitle) {
+                        titleDiff = { currentHtml: '', revisedHtml: `<span class="diff-added">${escapeHtml(rightTitle)}</span>` };
+                    } else if (leftTitle && !rightTitle) {
+                        titleDiff = { currentHtml: `<span class="diff-deleted">${escapeHtml(leftTitle)}</span>`, revisedHtml: '' };
+                    }
+
                     if (cNode && rNode && childResults.length > 0) {
                         const firstChild = childResults[0];
                         if (firstChild.type === 'keep' && firstChild.key.startsWith(art + '-①')) {
-                            leftHtmls.push(`<strong>${escapeHtml(artLeftText)} ${firstChild.current}</strong>`);
-                            rightHtmls.push(`<strong>${escapeHtml(artRightText)} ${firstChild.revised}</strong>`);
+                            leftHtmls.push(`<strong>${titleDiff.currentHtml} ${firstChild.current}</strong>`);
+                            rightHtmls.push(`<strong>${titleDiff.revisedHtml} ${firstChild.revised}</strong>`);
                             startChildIdx = 1;
                         } else {
-                            leftHtmls.push(`<strong>${escapeHtml(artLeftText)}</strong>`);
-                            rightHtmls.push(`<strong>${escapeHtml(artRightText)}</strong>`);
+                            leftHtmls.push(`<strong>${titleDiff.currentHtml}</strong>`);
+                            rightHtmls.push(`<strong>${titleDiff.revisedHtml}</strong>`);
                         }
                     } else {
-                        if (cNode) leftHtmls.push(`<strong>${escapeHtml(artLeftText)}</strong>`);
-                        if (rNode) rightHtmls.push(`<strong>${escapeHtml(artRightText)}</strong>`);
+                        if (leftTitle) leftHtmls.push(`<strong>${titleDiff.currentHtml}</strong>`);
+                        if (rightTitle) rightHtmls.push(`<strong>${titleDiff.revisedHtml}</strong>`);
                     }
 
                     // Push rest of sub-clauses
@@ -2549,8 +2576,8 @@
                             hwpTable.setAttribute('border', '0');
                             hwpTable.setAttribute('cellspacing', '0');
                             hwpTable.setAttribute('cellpadding', '0');
-                            hwpTable.setAttribute('style', 'width: 100%; border: none !important; margin: 0; padding: 0; border-collapse: collapse;');
-                            hwpTable.innerHTML = `<tr style="border: none !important;"><td style="border: none !important; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none !important; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr>`;
+                            hwpTable.setAttribute('style', 'width: 100%; border: none; margin: 0; padding: 0; border-collapse: collapse;');
+                            hwpTable.innerHTML = `<tr style="border: none;"><td style="border: none; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr>`;
                             div.parentNode.replaceChild(hwpTable, div);
                         }
                     } else if (div.style.textAlign === 'center') {
@@ -2565,14 +2592,14 @@
             spans.forEach(span => {
                 if (span.classList.contains('diff-deleted')) {
                     if (span.classList.contains('deleted-text')) {
-                        span.setAttribute('style', 'color: #dc2626 !important; font-weight: bold; text-decoration: line-through !important;');
+                        span.setAttribute('style', 'color: #dc2626; font-weight: bold; text-decoration: line-through;');
                     } else {
-                        span.setAttribute('style', 'color: #dc2626 !important; font-weight: bold; text-decoration: none;');
+                        span.setAttribute('style', 'color: #dc2626; font-weight: bold; text-decoration: none;');
                     }
                 } else if (span.classList.contains('diff-added')) {
-                    span.setAttribute('style', 'color: #0052cc !important; font-weight: bold; text-decoration: none;');
+                    span.setAttribute('style', 'color: #0052cc; font-weight: bold; text-decoration: none;');
                 } else if (span.classList.contains('status-keep')) {
-                    span.setAttribute('style', 'color: #777777 !important; font-style: normal;');
+                    span.setAttribute('style', 'color: #777777; font-style: normal;');
                 }
             });
 
@@ -2591,7 +2618,7 @@
                     let style = el.getAttribute('style') || "";
                     if (style && !style.endsWith(';')) style += ';';
                     style = style.replace(/font-size\s*:\s*[^;]+;?/gi, '');
-                    el.setAttribute('style', style + ' font-size: 8pt !important;');
+                    el.setAttribute('style', style + ' font-size: 8pt;');
                 });
 
                 const ntTds = nt.querySelectorAll('td, th');
@@ -2603,10 +2630,10 @@
                     
                     let extraStyle = "";
                     if (td.style.fontWeight === 'bold' || td.style.fontSize === '14px' || td.style.cssText.indexOf('double') !== -1) {
-                        extraStyle = "border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: 2px double #000000 !important; font-size: 8pt !important; font-weight: bold !important; padding: 8px 0 !important; background-color: #ffffff !important;";
+                        extraStyle = "border-left: none; border-right: none; border-top: none; border-bottom: 2px double #000000; font-size: 8pt; font-weight: bold; padding: 8px 0; background-color: #ffffff;";
                         alignAttr = 'center';
                     } else {
-                        extraStyle = "border: 1px solid #000000 !important;";
+                        extraStyle = "border: 1px solid #000000;";
                     }
                     
                     td.setAttribute('style', `padding: 4px; vertical-align: top; font-size: 8pt; color: #000000; line-height: 1.3; word-break: break-all; ${extraStyle}`);
@@ -2625,8 +2652,8 @@
                                 hwpTable.setAttribute('border', '0');
                                 hwpTable.setAttribute('cellspacing', '0');
                                 hwpTable.setAttribute('cellpadding', '0');
-                                hwpTable.setAttribute('style', 'width: 100%; border: none !important; margin: 0; padding: 0; border-collapse: collapse;');
-                                hwpTable.innerHTML = `<tr style="border: none !important;"><td style="border: none !important; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none !important; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr>`;
+                                hwpTable.setAttribute('style', 'width: 100%; border: none; margin: 0; padding: 0; border-collapse: collapse;');
+                                hwpTable.innerHTML = `<tr style="border: none;"><td style="border: none; text-align: left; padding: 0; font-size: 10px; color: #000000;" align="left">${label}</td><td style="border: none; text-align: right; padding: 0; font-size: 10px; color: #000000;" align="right">${sig}</td></tr>`;
                                 div.parentNode.replaceChild(hwpTable, div);
                             }
                         } else if (div.style.textAlign === 'center') {
@@ -2691,28 +2718,28 @@
             margin-top: 5px;
         }
         .hwp-imported-table {
-            border-collapse: collapse !important;
-            width: 100% !important;
-            margin: 5px 0 !important;
-            border: 1px solid #000000 !important;
-            font-size: 8pt !important;
-            color: #000000 !important;
+            border-collapse: collapse;
+            width: 100%;
+            margin: 5px 0;
+            border: 1px solid #000000;
+            font-size: 8pt;
+            color: #000000;
         }
         .hwp-imported-table td, .hwp-imported-table th {
-            padding: 3px 5px !important;
-            border: 1px solid #000000 !important;
-            font-size: 8pt !important;
-            color: #000000 !important;
+            padding: 3px 5px;
+            border: 1px solid #000000;
+            font-size: 8pt;
+            color: #000000;
         }
         .table-deleted-wrapper {
-            border: 1px solid #dc2626 !important;
-            padding: 2px !important;
-            background-color: #fef2f2 !important;
+            border: 1px solid #dc2626;
+            padding: 2px;
+            background-color: #fef2f2;
         }
         .table-added-wrapper {
-            border: 1px solid #0052cc !important;
-            padding: 2px !important;
-            background-color: #eff6ff !important;
+            border: 1px solid #0052cc;
+            padding: 2px;
+            background-color: #eff6ff;
         }
     </style>
 </head>
