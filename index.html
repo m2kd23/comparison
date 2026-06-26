@@ -968,8 +968,11 @@
             <!-- Controls Panel -->
             <div class="controls-panel">
                 <div class="action-button-group" id="btn-group-container">
-                    <button class="btn btn-compare" id="btn-compare" onclick="generateDaebipyo()" disabled>
-                        <span>신·구조문대비표 생성</span>
+                    <button class="btn btn-compare" id="btn-compare" onclick="generateDaebipyo(false)" disabled>
+                        <span>신·구조문대비표 생성(문자버전)</span>
+                    </button>
+                    <button class="btn btn-compare" id="btn-compare-hyphen" onclick="generateDaebipyo(true)" disabled>
+                        <span>신·구조문대비표 생성(---버전)</span>
                     </button>
                 </div>
             </div>
@@ -1071,6 +1074,7 @@
         };
         let comparisonRows = [];
         let currentFilter = 'all';
+        let isHyphenMode = false;
 
         // Theme Toggle
         const themeToggle = document.getElementById('theme-toggle');
@@ -1346,12 +1350,25 @@
 
         function checkCompareButtonState() {
             const btn = document.getElementById('btn-compare');
+            const btnHyphen = document.getElementById('btn-compare-hyphen');
             if (uploadedFiles.current && uploadedFiles.revised) {
-                btn.classList.add('active');
-                btn.removeAttribute('disabled');
+                if (btn) {
+                    btn.classList.add('active');
+                    btn.removeAttribute('disabled');
+                }
+                if (btnHyphen) {
+                    btnHyphen.classList.add('active');
+                    btnHyphen.removeAttribute('disabled');
+                }
             } else {
-                btn.classList.remove('active');
-                btn.setAttribute('disabled', 'true');
+                if (btn) {
+                    btn.classList.remove('active');
+                    btn.setAttribute('disabled', 'true');
+                }
+                if (btnHyphen) {
+                    btnHyphen.classList.remove('active');
+                    btnHyphen.setAttribute('disabled', 'true');
+                }
             }
         }
 
@@ -1376,8 +1393,11 @@
 
             const btnContainer = document.getElementById('btn-group-container');
             btnContainer.innerHTML = `
-                <button class="btn btn-compare" id="btn-compare" onclick="generateDaebipyo()" disabled>
-                    <span>신·구조문대비표 생성</span>
+                <button class="btn btn-compare" id="btn-compare" onclick="generateDaebipyo(false)" disabled>
+                    <span>신·구조문대비표 생성(문자버전)</span>
+                </button>
+                <button class="btn btn-compare" id="btn-compare-hyphen" onclick="generateDaebipyo(true)" disabled>
+                    <span>신·구조문대비표 생성(---버전)</span>
                 </button>
             `;
 
@@ -1391,7 +1411,8 @@
         }
 
         // Aligner & comparison logic
-        function generateDaebipyo() {
+        function generateDaebipyo(useHyphens = false) {
+            isHyphenMode = useHyphens;
             if (!uploadedFiles.current || !uploadedFiles.revised) return;
 
             const loader = document.getElementById('loading-overlay');
@@ -1765,7 +1786,7 @@
                     const currCell = currRows[r][c];
                     const revCell = revRows[r][c];
                     
-                    if (currCell.text === revCell.text) {
+                    if (currCell.text === revCell.text && !isHyphenMode) {
                         diffCurrCells.push({
                             colSpan: currCell.colSpan,
                             rowSpan: currCell.rowSpan,
@@ -1866,12 +1887,13 @@
         }
 
         // Two-way 어절 LCS Diff engine for Standard Red/Blue Coloring
-        function generateWordDiff(currText, revText) {
+        function generateWordDiff(currText, revText, forceNoHyphens = false) {
             if (!currText) return { currentHtml: '', revisedHtml: `<span class="diff-added">${escapeHtml(revText)}</span>` };
             if (!revText) return { currentHtml: `<span class="diff-deleted">${escapeHtml(currText)}</span>`, revisedHtml: '' };
 
             const escCurr = escapeHtml(currText);
             const escRev = escapeHtml(revText);
+            const activeHyphenMode = isHyphenMode && !forceNoHyphens;
 
             // Split strictly by spaces to compare whole words (eojeols) including brackets/punctuation
             const curWords = escCurr.split(/(\s+)/).filter(x => x);
@@ -1931,7 +1953,12 @@
                         leftResult.push('</span>');
                         inDeleted = false;
                     }
-                    leftResult.push(word);
+                    if (activeHyphenMode) {
+                        const unescaped = word.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+                        leftResult.push('-'.repeat(unescaped.length));
+                    } else {
+                        leftResult.push(word);
+                    }
                 }
             }
             if (inDeleted) leftResult.push('</span>');
@@ -1962,7 +1989,12 @@
                         rightResult.push('</span>');
                         inAdded = false;
                     }
-                    rightResult.push(word);
+                    if (activeHyphenMode) {
+                        const unescaped = word.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+                        rightResult.push('-'.repeat(unescaped.length));
+                    } else {
+                        rightResult.push(word);
+                    }
                 }
             }
             if (inAdded) rightResult.push('</span>');
@@ -2117,11 +2149,18 @@
                         }
                     } else {
                         // Container (unaltered itself but has child edits)
+                        let leftText = cNode.type === 'table' ? renderTableStructureToHtml(cNode.tableData) : escapeHtml(cNode.text);
+                        let rightText = rNode.type === 'table' ? renderTableStructureToHtml(rNode.tableData) : escapeHtml(rNode.text);
+                        if (isHyphenMode && cNode.type !== 'table' && cNode.type !== 'article') {
+                            const diff = generateWordDiff(cNode.text, rNode.text);
+                            leftText = diff.currentHtml;
+                            rightText = diff.revisedHtml;
+                        }
                         results.push({
                             key: key,
                             type: 'container',
-                            current: cNode.type === 'table' ? renderTableStructureToHtml(cNode.tableData) : escapeHtml(cNode.text),
-                            revised: rNode.type === 'table' ? renderTableStructureToHtml(rNode.tableData) : escapeHtml(rNode.text)
+                            current: leftText,
+                            revised: rightText
                         });
                     }
 
@@ -2389,7 +2428,7 @@
                     let rightTitle = artRightText;
                     let titleDiff = { currentHtml: escapeHtml(leftTitle), revisedHtml: escapeHtml(rightTitle) };
                     if (leftTitle && rightTitle && leftTitle !== rightTitle) {
-                        titleDiff = generateWordDiff(leftTitle, rightTitle);
+                        titleDiff = generateWordDiff(leftTitle, rightTitle, true);
                     } else if (!leftTitle && rightTitle) {
                         titleDiff = { currentHtml: '', revisedHtml: `<span class="diff-added">${escapeHtml(rightTitle)}</span>` };
                     } else if (leftTitle && !rightTitle) {
@@ -2469,8 +2508,11 @@
             // Transition main controls to the Finished State
             const btnContainer = document.getElementById('btn-group-container');
             btnContainer.innerHTML = `
-                <button class="btn btn-compare completed-state" id="btn-compare" onclick="generateDaebipyo()">
-                    <span>신·구조문대비표 생성</span>
+                <button class="btn btn-compare ${!isHyphenMode ? 'active' : 'completed-state'}" id="btn-compare" onclick="generateDaebipyo(false)">
+                    <span>신·구조문대비표 생성(문자버전)</span>
+                </button>
+                <button class="btn btn-compare ${isHyphenMode ? 'active' : 'completed-state'}" id="btn-compare-hyphen" onclick="generateDaebipyo(true)">
+                    <span>신·구조문대비표 생성(---버전)</span>
                 </button>
                 <button class="btn btn-download" onclick="downloadDaebipyoHwp()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
