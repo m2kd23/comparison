@@ -1610,7 +1610,7 @@
                         });
                         
                         if (bodyText) {
-                            currPara = "body";
+                            currPara = "①";
                             const key = `${currArtKey}-${currPara}`;
                             nodes.push({
                                 type: 'paragraph',
@@ -2437,9 +2437,14 @@
 
                     if (cNode && rNode && childResults.length > 0) {
                         const firstChild = childResults[0];
-                        if (firstChild.type === 'keep' && firstChild.key.startsWith(art + '-①')) {
-                            leftHtmls.push(`<strong>${titleDiff.currentHtml} ${firstChild.current}</strong>`);
-                            rightHtmls.push(`<strong>${titleDiff.revisedHtml} ${firstChild.revised}</strong>`);
+                        if (firstChild.key.startsWith(art + '-①')) {
+                            if (firstChild.type === 'keep') {
+                                leftHtmls.push(`<strong>${titleDiff.currentHtml} ${firstChild.current}</strong>`);
+                                rightHtmls.push(`<strong>${titleDiff.revisedHtml} ${firstChild.revised}</strong>`);
+                            } else {
+                                leftHtmls.push(`<strong>${titleDiff.currentHtml}</strong> ${firstChild.current}`);
+                                rightHtmls.push(`<strong>${titleDiff.revisedHtml}</strong> ${firstChild.revised}`);
+                            }
                             startChildIdx = 1;
                         } else {
                             leftHtmls.push(`<strong>${titleDiff.currentHtml}</strong>`);
